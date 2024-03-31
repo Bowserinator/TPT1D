@@ -2455,10 +2455,10 @@ void GameView::OnDraw()
 			if (type)
 				sampleInfo << "#" << sample.ParticleID << ", ";
 
-			sampleInfo << "X:" << sample.PositionX << " Y:" << sample.PositionY;
+			sampleInfo << "Y:" << sample.PositionY;
 
 			if (sample.Gravity)
-				sampleInfo << ", GX: " << sample.GravityVelocityX << " GY: " << sample.GravityVelocityY;
+				sampleInfo << ", GY: " << sample.GravityVelocityY;
 
 			if (c->GetAHeatEnable())
 			{

@@ -525,17 +525,11 @@ void Renderer::render_parts()
 					//head
 					if(t==PT_FIGH)
 					{
-						DrawLine({ nx, ny+2 }, { nx+2, ny }, RGB<uint8_t>(colr, colg, colb));
-						DrawLine({ nx+2, ny }, { nx, ny-2 }, RGB<uint8_t>(colr, colg, colb));
-						DrawLine({ nx, ny-2 }, { nx-2, ny }, RGB<uint8_t>(colr, colg, colb));
-						DrawLine({ nx-2, ny }, { nx, ny+2 }, RGB<uint8_t>(colr, colg, colb));
+						DrawLine({ nx, ny+2 }, { nx, ny }, RGB<uint8_t>(colr, colg, colb));
 					}
 					else
 					{
-						DrawLine({ nx-2, ny+2 }, { nx+2, ny+2 }, RGB<uint8_t>(colr, colg, colb));
-						DrawLine({ nx-2, ny-2 }, { nx+2, ny-2 }, RGB<uint8_t>(colr, colg, colb));
-						DrawLine({ nx-2, ny-2 }, { nx-2, ny+2 }, RGB<uint8_t>(colr, colg, colb));
-						DrawLine({ nx+2, ny-2 }, { nx+2, ny+2 }, RGB<uint8_t>(colr, colg, colb));
+						DrawLine({ nx, ny+3 }, { nx, ny }, RGB<uint8_t>(colr, colg, colb));
 					}
 					//legs
 					DrawLine({                    nx,                  ny+3 }, { int(cplayer->legs[ 0]), int(cplayer->legs[ 1]) }, RGB<uint8_t>(legr, legg, legb));
@@ -873,6 +867,8 @@ void Renderer::draw_air()
 	for (y=0; y<YCELLS; y++)
 		for (x=0; x<XCELLS; x++)
 		{
+			if (x != XCELLS / 2) continue;
+
 			if (display_mode & DISPLAY_AIRP)
 			{
 				if (pv[y][x] > 0.0f)

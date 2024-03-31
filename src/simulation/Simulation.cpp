@@ -96,6 +96,9 @@ void Simulation::Load(const GameSave *save, bool includePressure, Vec2<int> bloc
 			continue;
 		}
 
+		x = XRES / 2;
+		tempPart.x = XRES / 2;
+
 		// Ensure we can spawn this element
 		if ((player.spwn == 1 && tempPart.type==PT_STKM) || (player2.spwn == 1 && tempPart.type==PT_STKM2))
 		{
@@ -260,31 +263,33 @@ void Simulation::Load(const GameSave *save, bool includePressure, Vec2<int> bloc
 			signs.push_back(tempSign);
 		}
 	}
+
+	const int WALL_X = XRES / CELL / 2;
 	for (auto bpos : RectSized(blockP, save->blockSize) & CELLS.OriginRect())
 	{
 		auto spos = bpos - blockP;
 		if (save->blockMap[spos])
 		{
-			bmap[bpos.Y][bpos.X] = save->blockMap[spos];
-			fvx[bpos.Y][bpos.X] = save->fanVelX[spos];
-			fvy[bpos.Y][bpos.X] = save->fanVelY[spos];
+			bmap[bpos.Y][WALL_X] = save->blockMap[spos];
+			fvx[bpos.Y][WALL_X] = save->fanVelX[spos];
+			fvy[bpos.Y][WALL_X] = save->fanVelY[spos];
 		}
 		if (includePressure)
 		{
 			if (save->hasPressure)
 			{
-				pv[bpos.Y][bpos.X] = save->pressure[spos];
-				vx[bpos.Y][bpos.X] = save->velocityX[spos];
-				vy[bpos.Y][bpos.X] = save->velocityY[spos];
+				pv[bpos.Y][WALL_X] = save->pressure[spos];
+				vx[bpos.Y][WALL_X] = save->velocityX[spos];
+				vy[bpos.Y][WALL_X] = save->velocityY[spos];
 			}
 			if (save->hasAmbientHeat)
 			{
-				hv[bpos.Y][bpos.X] = save->ambientHeat[spos];
+				hv[bpos.Y][WALL_X] = save->ambientHeat[spos];
 			}
 			if (save->hasBlockAirMaps)
 			{
-				air->bmap_blockair[bpos.Y][bpos.X] = save->blockAir[spos];
-				air->bmap_blockairh[bpos.Y][bpos.X] = save->blockAirh[spos];
+				air->bmap_blockair[bpos.Y][WALL_X] = save->blockAir[spos];
+				air->bmap_blockairh[bpos.Y][WALL_X] = save->blockAirh[spos];
 			}
 		}
 	}
@@ -1052,6 +1057,8 @@ int Simulation::eval_move(int pt, int nx, int ny, unsigned *rr) const
 
 	if (nx<0 || ny<0 || nx>=XRES || ny>=YRES)
 		return 0;
+	if (nx != XRES / 2)
+		return 0;
 
 	r = pmap[ny][nx];
 	if (r)
@@ -1786,9 +1793,14 @@ int Simulation::create_part(int p, int x, int y, int t, int v)
 {
 	int i, oldType = PT_NONE;
 
+	if (p == -2)
+		x = XRES / 2;
+
 	auto &sd = SimulationData::CRef();
 	auto &elements = sd.elements;
 	if (x<0 || y<0 || x>=XRES || y>=YRES || t<=0 || t>=PT_NUM || !elements[t].Enabled)
+		return -1;
+	if (x != XRES / 2)
 		return -1;
 
 	if (t == PT_SPRK && !(p == -2 && elements[TYP(pmap[y][x])].CtypeDraw))
@@ -2057,6 +2069,7 @@ void Simulation::create_cherenkov_photon(int pp)//photons from NEUT going throug
 void Simulation::delete_part(int x, int y)//calls kill_part with the particle located at x,y
 {
 	unsigned i;
+	x = XRES / 2;
 
 	if (x<0 || y<0 || x>=XRES || y>=YRES)
 		return;
@@ -2243,6 +2256,20 @@ void Simulation::UpdateParticles(int start, int end)
 
 			if (bmap[y/CELL][x/CELL]==WL_DETECT && emap[y/CELL][x/CELL]<8)
 				set_emap(x/CELL, y/CELL);
+
+			// Dimensional collapse
+			if (x != XRES / 2) {
+				parts[i].x = XRES / 2;
+				if (elements[t].Properties & TYPE_ENERGY) {
+					photons[y][x] = PT_NONE;
+					x = XRES / 2;
+					photons[y][x] = PMAP(i, t);
+				} else {
+					pmap[y][x] = PT_NONE;
+					x = XRES / 2;
+					pmap[y][x] = PMAP(i, t);
+				}
+			}
 
 			//adding to velocity from the particle's velocity
 			vx[y/CELL][x/CELL] = vx[y/CELL][x/CELL]*elements[t].AirLoss + elements[t].AirDrag*parts[i].vx;
@@ -3613,65 +3640,65 @@ void Simulation::SimulateGoL()
 
 void Simulation::CheckStacking()
 {
-	auto &sd = SimulationData::CRef();
-	auto &elements = sd.elements;
-	bool excessive_stacking_found = false;
-	force_stacking_check = false;
-	for (int y = 0; y < YRES; y++)
-	{
-		for (int x = 0; x < XRES; x++)
-		{
-			// Use a threshold, since some particle stacking can be normal (e.g. BIZR + FILT)
-			// Setting pmap_count[y][x] > NPART means BHOL will form in that spot
-			if (pmap_count[y][x]>5)
-			{
-				if (bmap[y/CELL][x/CELL]==WL_EHOLE)
-				{
-					// Allow more stacking in E-hole
-					if (pmap_count[y][x]>1500)
-					{
-						pmap_count[y][x] = pmap_count[y][x] + NPART;
-						excessive_stacking_found = 1;
-					}
-				}
-				else if (pmap_count[y][x]>1500 || (unsigned int)rng.between(0, 1599) <= (pmap_count[y][x]+100))
-				{
-					pmap_count[y][x] = pmap_count[y][x] + NPART;
-					excessive_stacking_found = true;
-				}
-			}
-		}
-	}
-	if (excessive_stacking_found)
-	{
-		for (int i = 0; i <= parts_lastActiveIndex; i++)
-		{
-			if (parts[i].type)
-			{
-				int t = parts[i].type;
-				int x = (int)(parts[i].x+0.5f);
-				int y = (int)(parts[i].y+0.5f);
-				if (x>=0 && y>=0 && x<XRES && y<YRES && !(elements[t].Properties&TYPE_ENERGY))
-				{
-					if (pmap_count[y][x]>=NPART)
-					{
-						if (pmap_count[y][x]>NPART)
-						{
-							create_part(i, x, y, PT_NBHL);
-							parts[i].temp = MAX_TEMP;
-							parts[i].tmp = pmap_count[y][x]-NPART;//strength of grav field
-							if (parts[i].tmp>51200) parts[i].tmp = 51200;
-							pmap_count[y][x] = NPART;
-						}
-						else
-						{
-							kill_part(i);
-						}
-					}
-				}
-			}
-		}
-	}
+	// auto &sd = SimulationData::CRef();
+	// auto &elements = sd.elements;
+	// bool excessive_stacking_found = false;
+	// force_stacking_check = false;
+	// for (int y = 0; y < YRES; y++)
+	// {
+	// 	for (int x = 0; x < XRES; x++)
+	// 	{
+	// 		// Use a threshold, since some particle stacking can be normal (e.g. BIZR + FILT)
+	// 		// Setting pmap_count[y][x] > NPART means BHOL will form in that spot
+	// 		if (pmap_count[y][x]>5)
+	// 		{
+	// 			if (bmap[y/CELL][x/CELL]==WL_EHOLE)
+	// 			{
+	// 				// Allow more stacking in E-hole
+	// 				if (pmap_count[y][x]>1500)
+	// 				{
+	// 					pmap_count[y][x] = pmap_count[y][x] + NPART;
+	// 					excessive_stacking_found = 1;
+	// 				}
+	// 			}
+	// 			else if (pmap_count[y][x]>1500 || (unsigned int)rng.between(0, 1599) <= (pmap_count[y][x]+100))
+	// 			{
+	// 				pmap_count[y][x] = pmap_count[y][x] + NPART;
+	// 				excessive_stacking_found = true;
+	// 			}
+	// 		}
+	// 	}
+	// }
+	// if (excessive_stacking_found)
+	// {
+	// 	for (int i = 0; i <= parts_lastActiveIndex; i++)
+	// 	{
+	// 		if (parts[i].type)
+	// 		{
+	// 			int t = parts[i].type;
+	// 			int x = (int)(parts[i].x+0.5f);
+	// 			int y = (int)(parts[i].y+0.5f);
+	// 			if (x>=0 && y>=0 && x<XRES && y<YRES && !(elements[t].Properties&TYPE_ENERGY))
+	// 			{
+	// 				if (pmap_count[y][x]>=NPART)
+	// 				{
+	// 					if (pmap_count[y][x]>NPART)
+	// 					{
+	// 						create_part(i, x, y, PT_NBHL);
+	// 						parts[i].temp = MAX_TEMP;
+	// 						parts[i].tmp = pmap_count[y][x]-NPART;//strength of grav field
+	// 						if (parts[i].tmp>51200) parts[i].tmp = 51200;
+	// 						pmap_count[y][x] = NPART;
+	// 					}
+	// 					else
+	// 					{
+	// 						kill_part(i);
+	// 					}
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// }
 }
 
 //updates pmap, gol, and some other simulation stuff (but not particles)

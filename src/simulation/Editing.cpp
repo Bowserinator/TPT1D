@@ -119,6 +119,7 @@ void Simulation::clear_area(int area_x, int area_y, int area_w, int area_h)
 
 SimulationSample Simulation::GetSample(int x, int y)
 {
+	x = XRES / 2;
 	SimulationSample sample;
 	sample.PositionX = x;
 	sample.PositionY = y;
@@ -230,7 +231,7 @@ int Simulation::CreateWalls(int x, int y, int rx, int ry, int wall, Brush const 
 							signs.erase(signs.begin()+i);
 					bmap[wallY][wallX] = 0;
 				}
-				else
+				else if (wallX == XRES / CELL / 2)
 					bmap[wallY][wallX] = wall;
 			}
 		}
@@ -305,7 +306,8 @@ void Simulation::CreateWallBox(int x1, int y1, int x2, int y2, int wall)
 	}
 	for (j=y1; j<=y2; j++)
 		for (i=x1; i<=x2; i++)
-			CreateWalls(i, j, 0, 0, wall, NULL);
+			if (i == XRES / CELL / 2)
+				CreateWalls(i, j, 0, 0, wall, NULL);
 }
 
 int Simulation::FloodWalls(int x, int y, int wall, int bm)
