@@ -40,7 +40,7 @@ option(
 	'display_version_major',
 	type: 'integer',
 	min: 0,
-	value: 98,
+	value: 1,
 	description: 'Major component of the display version, should more or less map to the MINOR version in semantic versioning'
 )
 option(
@@ -54,7 +54,7 @@ option(
 	'build_num',
 	type: 'integer',
 	min: 0,
-	value: 363,
+	value: 0,
 	description: 'Build number, should be strictly monotonously increasing across public releases'
 )
 option(
@@ -82,7 +82,7 @@ option(
 	'mod_id',
 	type: 'integer',
 	min: 0,
-	value: 0,
+	value: 13,
 	description: 'Mod ID, used on the https://starcatcher.us/TPT build server, the build server will compile for all platforms for you and send updates in-game, see jacob1 to get a mod ID'
 )
 option(
